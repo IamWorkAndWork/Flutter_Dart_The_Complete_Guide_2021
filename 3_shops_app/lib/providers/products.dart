@@ -64,8 +64,34 @@ class Products with ChangeNotifier {
   //   notifyListeners();
   // }
 
-  void addProduct() {
-    // _items.add(value);
+  void addProduct(Product product) {
+    final newProduct = Product(
+      title: product.title,
+      description: product.description,
+      price: product.price,
+      imageUrl: product.imageUrl,
+      id: DateTime.now().toString(),
+    );
+    _items.add(newProduct);
     notifyListeners();
+  }
+
+  List<Product> get favoriteItems {
+    return _items.where((prodItem) => prodItem.isFavorite).toList();
+  }
+
+  void deleteProduct(String id) {
+    _items.removeWhere((element) => element.id == id);
+    notifyListeners();
+  }
+
+  void updateProduct(String id, Product newProduct) {
+    final productId = _items.indexWhere((element) => element.id == id);
+    if (productId > 0) {
+      _items[productId] = newProduct;
+      notifyListeners();
+    } else {
+      print("update product not found");
+    }
   }
 }
