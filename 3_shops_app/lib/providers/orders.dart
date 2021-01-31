@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
 
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'cart.dart';
 
 class OrderItem {
@@ -18,18 +20,86 @@ class OrderItem {
 
 class Orders with ChangeNotifier {
   List<OrderItem> _orders = [];
+  String _authToken;
+  String _userId;
+
+  // Orders(
+  //   this.authToken,
+  //   this.userId,
+  //   this._orders,
+  // );
+
+  update(String token, String userId, List<OrderItem> items) {
+    this._authToken = token;
+    this._userId = userId;
+    this._orders = items;
+  }
 
   List<OrderItem> get orders {
     return [..._orders];
   }
 
-  void addOrder(List<CartItem> cartProducts, double total) {
+  Future<void> fetchAndSetOrders() async {
+    final url =
+        'https://flutter-shops-app-udemy-default-rtdb.firebaseio.com/orders/$_userId.json?auth=$_authToken';
+    final response = await http.get(url);
+    final List<OrderItem> loadedOrders = [];
+    final extractedData = json.decode(response.body) as Map<String, dynamic>;
+    if (extractedData == null) {
+      return;
+    }
+    extractedData.forEach((orderId, orderData) {
+      loadedOrders.add(
+        OrderItem(
+          id: orderId,
+          amount: orderData['amount'],
+          dateTime: DateTime.parse(orderData['dateTime']),
+          products: (orderData['products'] as List<dynamic>)
+              .map(
+                (e) => CartItem(
+                  id: e['id'],
+                  price: e['price'],
+                  quantity: e['quantity'],
+                  title: e['title'],
+                ),
+              )
+              .toList(),
+        ),
+      );
+    });
+    _orders = loadedOrders.reversed.toList();
+    notifyListeners();
+  }
+
+  Future<void> addOrder(List<CartItem> cartProducts, double total) async {
+    final url =
+        'https://flutter-shops-app-udemy-default-rtdb.firebaseio.com/orders/$_userId.json?auth=$_authToken';
+    final timeStamp = DateTime.now();
+    final response = await http.post(
+      url,
+      body: json.encode(
+        {
+          'amount': total,
+          'dateTime': timeStamp.toIso8601String(),
+          'products': cartProducts
+              .map(
+                (e) => {
+                  'id': e.id,
+                  'title': e.title,
+                  'quantity': e.quantity,
+                  'price': e.price,
+                },
+              )
+              .toList(),
+        },
+      ),
+    );
     _orders.insert(
       0,
       OrderItem(
-        id: DateTime.now().toString(),
+        id: json.decode(response.body)['name'],
         amount: total,
-        dateTime: DateTime.now(),
+        dateTime: timeStamp,
         products: cartProducts,
       ),
     );
